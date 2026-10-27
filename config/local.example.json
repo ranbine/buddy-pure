@@ -1,0 +1,10 @@
+{
+  "_comment": "Copy to config/local.json (gitignored). Domain-specific extensions for the shared scripts; every key is optional.",
+  "summary_tags": [["deploy", "helm|kubectl apply"], ["log_analysis", "my-test-runner"]],
+  "log_patterns": ["my-test-runner", "alarm"],
+  "agent_keywords": {"my-agent": ["my-agent", "my-agent-prompt"]},
+  "closeout_categories": {"docs/reports/mytype": "mytype"},
+  "closeout_exclude": [".my_token_record"],
+  "reference_tips": ["my-big-reference.md"],
+  "audit_ignore_keywords": ["myproduct"]
+}

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+  --bg: #FAFAF8; --surface: #FFFFFF; --text: #1a1a1a; --text-s: #555;
+  --accent: #4099ff; --accent2: #2ed8b6; --accent3: #673ab7; --accent4: #ff5370; --accent5: #ffb64d;
+  --olive: #6B8E4E; --olive-bg: #EDF5E5; --blue: #4B7BC4; --blue-bg: #E8F2FD;
+  --border: #E8E5DE; --code-bg: #F5F3EE; --shadow: rgba(20,20,19,.06);
+  --serif: ui-serif, Georgia, "Times New Roman", serif;
+  --sans: Roboto, "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: "Roboto Mono", ui-monospace, monospace;
+  /* cbp-base.css compat */
+  --kb-bg: var(--bg); --kb-surface: var(--surface); --kb-text: var(--text);
+  --kb-text-s: var(--text-s); --kb-text-m: var(--text-s); --kb-accent: var(--accent); --kb-border: var(--border);
+}
+[data-theme="dark"] {
+  --bg: #1a1a2e; --surface: #16213e; --text: #e0e0e0; --text-s: #a0a0a0;
+  --border: #2a2a4a; --code-bg: #1e1e3a; --shadow: rgba(0,0,0,.3);
+  --olive-bg: #1e2e1a; --blue-bg: #1a2535;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.8; transition: background 200ms, color 200ms; }
+
+/* Progress */
+.progress { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); z-index: 9999; width: 0%; transition: width 80ms; }
+
+/* Nav */
+.nav-controls { display: flex; gap: 8px; align-items: center; }
+.nav-controls button { border: none; background: var(--surface); border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-s); transition: all .15s; }
+.nav-controls button.active, .nav-controls button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Layout */
+.wrap { max-width: 900px; margin: 0 auto; padding: 60px 32px 100px; }
+.hero { text-align: center; padding: 60px 0 48px; border-bottom: 1.5px solid var(--border); margin-bottom: 48px; }
+.hero .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .15em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
+.hero h1 { font-family: var(--serif); font-size: 34px; font-weight: 600; margin-bottom: 12px; line-height: 1.3; }
+.hero .subtitle { font-size: 15px; color: var(--text-s); max-width: 640px; margin: 0 auto; }
+
+/* Sections */
+section { margin-bottom: 48px; }
+h2 { font-family: var(--serif); font-size: 22px; font-weight: 600; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+
+/* Cards */
+.card { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; transition: box-shadow .2s; }
+.card:hover { box-shadow: 0 4px 16px var(--shadow); }
+
+/* === COMPARISON TABLE (bi-weekly core) === */
+.cmp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cmp-table th { padding: 12px; text-align: center; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-s); border-bottom: 2px solid var(--border); }
+.cmp-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: center; }
+.cmp-table td:first-child { text-align: left; font-weight: 500; }
+.cmp-table .up { color: var(--accent2); font-weight: 700; }
+.cmp-table .down { color: var(--accent4); font-weight: 700; }
+.cmp-table .same { color: var(--text-s); }
+.cmp-table .highlight { background: var(--code-bg); }
+
+/* === TREND BARS (bi-weekly core) === */
+.trend { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.trend-label { font-size: 13px; width: 140px; color: var(--text-s); }
+.trend-bar { height: 24px; border-radius: 6px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; font-weight: 600; color: #fff; min-width: 30px; }
+.trend-prev { background: var(--accent); opacity: 0.6; }
+.trend-curr { background: var(--accent2); }
+
+/* Badges */
+.badge { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; font-family: var(--mono); }
+.badge-evolved { background: #E8F5E9; color: #2E7D32; }
+.badge-new { background: var(--olive-bg); color: var(--olive); }
+.badge-stable { background: var(--blue-bg); color: var(--blue); }
+
+/* Code */
+code { font-family: var(--mono); font-size: 12px; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; }
+
+/* Bilingual */
+[lang="en"] .zh { display: none; }
+[lang="zh-CN"] .en { display: none; }
+
+/* Footer */
+footer { margin-top: 60px; border-top: 1.5px solid var(--border); padding-top: 20px; text-align: center; font-size: 13px; color: var(--text-s); }
+
+@media (max-width: 600px) { .cmp-table { font-size: 11px; } .hero h1 { font-size: 24px; } .trend-label { width: 100px; } }
+
+/* cbp-fx v1: reduced motion + card spotlight + button fill */
+:root { --fx-spot: rgba(64,153,255,.08); --fx-fill: rgba(64,153,255,.14); }
+.card, .stat-card { background-image: radial-gradient(420px circle at var(--mx, -999px) var(--my, -999px), var(--fx-spot), transparent 45%); }
+.cbp-nav .nav-controls button { position: relative; }
+.cbp-nav .nav-controls button, .back-to-top { overflow: hidden; isolation: isolate; }   /* back-to-top stays position: fixed */
+.cbp-nav .nav-controls button::before, .back-to-top::before {
+  content: ""; position: absolute; top: 50%; left: 50%; width: 0; height: 0; z-index: -1; border-radius: 50%;
+  background: var(--fx-fill); transform: translate(-50%, -50%); transition: width .5s ease, height .5s ease; pointer-events: none;
+}
+.back-to-top::before { background: rgba(255,255,255,.22); }
+.cbp-nav .nav-controls button:hover::before, .cbp-nav .nav-controls button:focus-visible::before,
+.back-to-top:hover::before, .back-to-top:focus-visible::before { width: 240px; height: 240px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+<link rel="stylesheet" href="../../cbp-base.css">
+</head>
+<body>
+<nav class="cbp-nav">
+  <a href="../../index.html" class="brand"><i class="fas fa-bolt"></i> Pure Lab</a>
+  <div class="nav-controls">
+    <button onclick="switchLang('zh-CN')" id="btnZh">中文</button>
+    <button class="active" onclick="switchLang('en')" id="btnEn">EN</button>
+    <button onclick="toggleTheme()" id="btnTheme"><i class="fas fa-moon"></i></button>
+    <a href="../../index.html" class="back-link"><i class="fas fa-arrow-left"></i> Back</a>
+  </div>
+</nav>
+<div class="progress" id="progressBar"></div>
+
+<div class="wrap">
+
+  <!-- ============================================================
+       HERO
+       ============================================================ -->
+  <div class="hero">
+    <div class="eyebrow">Bi-weekly Review · {{WEEK_RANGE}} · {{YEAR}}</div>
+    <h1>
+      <span class="zh">{{TITLE_ZH}}</span>
+      <span class="en">{{TITLE_EN}}</span>
+    </h1>
+    <p class="subtitle">
+      <span class="zh">{{SUBTITLE_ZH}}</span>
+      <span class="en">{{SUBTITLE_EN}}</span>
+    </p>
+  </div>
+
+  <!-- ============================================================
+       COMPARISON TABLE
+       ============================================================ -->
+  <section id="compare">
+    <h2><span class="zh"><i class="fas fa-balance-scale"></i> 周对比</span><span class="en"><i class="fas fa-balance-scale"></i> Week-over-Week Comparison</span></h2>
+    <div class="card">
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th><span class="zh">维度</span><span class="en">Dimension</span></th>
+            <th>{{PREV_WEEK}}</th>
+            <th>{{CURR_WEEK}}</th>
+            <th><span class="zh">趋势</span><span class="en">Trend</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {{CMP_ROWS}}
+          <!--
+          <tr>
+            <td>Metric Name</td>
+            <td>3</td>
+            <td>6+</td>
+            <td class="up">▲ 2×</td>
+          </tr>
+          <tr class="highlight">
+            <td><strong>Key Shift</strong></td>
+            <td><em>Phase A</em></td>
+            <td><em>Phase B</em></td>
+            <td class="up">⬆</td>
+          </tr>
+          -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       EFFICIENCY TRENDS (bar comparison)
+       ============================================================ -->
+  <section id="efficiency">
+    <h2><span class="zh"><i class="fas fa-tachometer-alt"></i> 效率变化</span><span class="en"><i class="fas fa-tachometer-alt"></i> Efficiency Trends</span></h2>
+    <div class="card">
+      {{TREND_BARS}}
+      <!--
+      <div class="trend">
+        <span class="trend-label">Metric</span>
+        <span class="trend-bar trend-prev" style="width:40%">Prev: X</span>
+        <span class="trend-bar trend-curr" style="width:75%">Curr: Y</span>
+      </div>
+      -->
+    </div>
+  </section>
+
+  <!-- ============================================================
+       CAPABILITY EVOLUTION
+       ============================================================ -->
+  <section id="evolution">
+    <h2><span class="zh"><i class="fas fa-dna"></i> 能力演化</span><span class="en"><i class="fas fa-dna"></i> Capability Evolution</span></h2>
+    <div class="card">
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th><span class="zh">能力</span><span class="en">Capability</span></th>
+            <th>{{PREV_WEEK}}</th>
+            <th>{{CURR_WEEK}}</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{EVOLUTION_ROWS}}
+          <!--
+          <tr>
+            <td>Tool Name</td>
+            <td>Initial state</td>
+            <td>Evolved state</td>
+            <td><span class="badge badge-evolved">EVOLVED</span></td>
+          </tr>
+          -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       REUSE PATTERNS
+       ============================================================ -->
+  <section id="reuse">
+    <h2><span class="zh"><i class="fas fa-recycle"></i> 复用模式</span><span class="en"><i class="fas fa-recycle"></i> Reuse Patterns</span></h2>
+    <div class="card">
+      <ul style="padding-left:1.2rem;font-size:14px;color:var(--text-s);">
+        {{REUSE_ITEMS}}
+        <!-- <li><strong>Pattern</strong>: description</li> -->
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       CORE INSIGHT
+       ============================================================ -->
+  <section id="insight">
+    <h2><span class="zh"><i class="fas fa-lightbulb"></i> 核心洞察</span><span class="en"><i class="fas fa-lightbulb"></i> Core Insight</span></h2>
+    <div class="card" style="border-left: 4px solid var(--accent2);">
+      <p style="font-size:15px;font-weight:500;margin-bottom:12px;">
+        <span class="zh">{{INSIGHT_ZH}}</span>
+        <span class="en">{{INSIGHT_EN}}</span>
+      </p>
+      <p style="font-size:13px;color:var(--text-s);">
+        <span class="zh">{{INSIGHT_DETAIL_ZH}}</span>
+        <span class="en">{{INSIGHT_DETAIL_EN}}</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       NEXT FOCUS
+       ============================================================ -->
+  <section id="next">
+    <h2><span class="zh"><i class="fas fa-forward"></i> 下两周关注</span><span class="en"><i class="fas fa-forward"></i> Next 2-Week Focus</span></h2>
+    <div class="card">
+      <ul style="padding-left:1.2rem;font-size:14px;color:var(--text-s);">
+        {{NEXT_ITEMS}}
+        <!-- <li>Focus item</li> -->
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <span class="zh">由 Pure 自动生成 · {{GEN_DATE}}</span>
+    <span class="en">Auto-generated by Pure · {{GEN_DATE}}</span>
+  </footer>
+
+</div>
+
+<script>
+function switchLang(lang) {
+  document.documentElement.lang = lang;
+  document.getElementById('btnZh').classList.toggle('active', lang === 'zh-CN');
+  document.getElementById('btnEn').classList.toggle('active', lang === 'en');
+}
+function toggleTheme() {
+  const d = document.documentElement;
+  d.dataset.theme = d.dataset.theme === 'dark' ? '' : 'dark';
+  document.getElementById('btnTheme').innerHTML = d.dataset.theme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+}
+window.addEventListener('scroll', () => {
+  const h = document.documentElement.scrollHeight - window.innerHeight;
+  document.getElementById('progressBar').style.width = (h > 0 ? window.scrollY / h * 100 : 0) + '%';
+});
+switchLang('en');
+</script>
+<script>
+/* cbp-fx v1: card spotlight (one delegated listener, rAF-throttled; off under reduced motion) */
+(() => {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let raf = 0, last = null, x = 0, y = 0;
+  document.addEventListener('mousemove', e => {
+    const card = e.target.closest && e.target.closest('.card, .stat-card');
+    if (last && last !== card) { last.style.removeProperty('--mx'); last.style.removeProperty('--my'); }
+    last = card; x = e.clientX; y = e.clientY;          // listener only records; rAF reads the latest
+    if (!card || raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      if (!last) return;
+      const r = last.getBoundingClientRect();
+      last.style.setProperty('--mx', (x - r.left) + 'px');
+      last.style.setProperty('--my', (y - r.top) + 'px');
+    });
+  });
+})();
+</script>
+</body>
+</html>

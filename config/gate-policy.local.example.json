@@ -1,0 +1,15 @@
+{
+  "_comment": "Copy to config/gate-policy.local.json (gitignored, protected by the gate). Personal / site-specific additions on top of .codebuddy/rules/gate-policy.json. Allowed keys: mode, l2_default, approval_ttl_sec, rules, rule_overrides. Placeholders work here too.",
+  "mode": "shadow",
+  "rules": [
+    {"id": "l3-tracker-write", "level": "L3", "tool": "@tracker-mcp/(create_issue|update_issue|add_comment|transition_issue)",
+     "note": "name the write tools of your own MCP servers so the gate reports a specific rule"},
+    {"id": "l1-my-cli", "level": "L1", "tool": "shell", "cmd": "^my-internal-cli\\b",
+     "note": "an internal CLI you trust"}
+  ],
+  "rule_overrides": {
+    "l3-mcp-write-default": {"tool": "@(tracker-mcp|review-mcp)/.*",
+                             "note": "only gate these servers by default; others fall to L2"},
+    "l0-mcp-read": {"tool": "@[^/]+/(get_|search_|list_|check_|show_|diagnostic_).*"}
+  }
+}

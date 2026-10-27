@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{TITLE_EN}} — Pure Monthly Review</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+    <style>
+        /* ========== Design Philosophy ==========
+         * Source: ~/pure/web-view + Gradient Able palette
+         * Style: 数字杂志 / 深度报道感
+         * Key: 视觉层次、负空间、微交互、高级感
+         * Palette: #4099ff #2ed8b6 #673ab7 #ff5370 #ffb64d
+         * ======================================= */
+
+        :root {
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #f3f5f7;
+            --bg-card: #ffffff;
+            --text-primary: #1d2630;
+            --text-secondary: #3e4853;
+            --text-muted: #5b6b79;
+            --accent: #4099ff;
+            --accent-light: #73b4ff;
+            --accent-dark: #2d7cd6;
+            --success: #2ed8b6;
+            --danger: #ff5370;
+            --warning: #ffb64d;
+            --info: #00bcd4;
+            --purple: #673ab7;
+            --border: #dbe0e5;
+            --code-bg: #f3f5f7;
+            --shadow: 0 2px 8px rgba(4,26,55,.08);
+            --shadow-hover: 0 12px 32px rgba(27,46,94,.12);
+            /* cbp-base.css compat */
+            --kb-bg: var(--bg-primary); --kb-surface: var(--bg-card); --kb-text: var(--text-primary);
+            --kb-text-s: var(--text-secondary); --kb-text-m: var(--text-muted); --kb-accent: var(--accent); --kb-border: var(--border);
+        }
+        .dark {
+            --bg-primary: #131920;
+            --bg-secondary: #1d2630;
+            --bg-card: #2a3139;
+            --text-primary: #f8f9fa;
+            --text-secondary: #bec8d0;
+            --text-muted: #8996a4;
+            --accent: #73b4ff;
+            --accent-light: #a3cfff;
+            --accent-dark: #4099ff;
+            --success: #43e9b3;
+            --danger: #f48fb1;
+            --warning: #ffd580;
+            --info: #38a9f9;
+            --purple: #9c7ae8;
+            --border: #3e4853;
+            --code-bg: #1d2630;
+            --shadow: 0 4px 20px rgba(0,0,0,.3);
+            --shadow-hover: 0 8px 30px rgba(0,0,0,.4);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans SC', Tahoma, Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.9;
+            transition: background .3s, color .3s;
+        }
+        .serif { font-family: 'Noto Serif SC', serif; }
+
+        /* === Progress Bar === */
+        .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: var(--accent); z-index: 9999; width: 0%; will-change: width; }
+
+        /* === Controls === */
+        .nav-controls { display: flex; gap: 8px; align-items: center; }
+        .nav-controls button { border: none; background: rgba(255,255,255,.95); border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 500; cursor: pointer; color: #3e4853; transition: all .15s; }
+        .nav-controls button:hover { background: var(--accent); color: #fff; }
+        .nav-controls button.active { background: var(--accent); color: #fff; }
+        .dark .nav-controls button { background: rgba(42,49,57,.9); color: #bec8d0; }
+
+        /* === Hero === */
+        .hero { min-height: 85vh; background: linear-gradient(135deg, #1d2630 0%, #2d7cd6 50%, #4099ff 100%); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+        .hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 25% 40%, rgba(46,216,182,.12) 0%, transparent 50%), radial-gradient(circle at 75% 70%, rgba(103,58,183,.1) 0%, transparent 40%); }
+        .hero-content { position: relative; z-index: 2; text-align: center; padding: 2rem; max-width: 800px; }
+        .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 700; color: #fff; margin-bottom: 1rem; letter-spacing: -0.02em; }
+        .hero .subtitle { font-size: clamp(1rem, 2vw, 1.2rem); color: rgba(255,255,255,.75); margin: 0 auto 2rem; line-height: 1.9; }
+        .hero .meta { color: rgba(255,255,255,.5); font-size: .85rem; display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; }
+        .hero .scroll-hint { position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,.4); animation: bounce 2s infinite; will-change: transform; }
+        @keyframes bounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(10px)} }
+
+        /* === Layout === */
+        .container { max-width: 820px; margin: 0 auto; padding: 0 1.5rem; }
+        .section { padding: 4.5rem 0; }
+        .section-title { font-size: 1.5rem; font-weight: 700; margin-bottom: .5rem; display: flex; align-items: center; gap: .5rem; }
+        .section-subtitle { color: var(--text-muted); margin-bottom: 2.5rem; font-size: .95rem; }
+
+        /* === Typography === */
+        .prose { font-size: 1rem; color: var(--text-secondary); line-height: 2; margin-bottom: 1.2rem; }
+        .prose strong { color: var(--text-primary); }
+        .prose code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: .85rem; font-family: 'Roboto Mono', monospace; }
+        .drop-cap::first-letter { float: left; font-family: 'Noto Serif SC', serif; font-size: 3.2rem; font-weight: 700; line-height: .8; margin: .1em .15em 0 0; color: var(--accent); }
+
+        /* === Cards === */
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem 2rem; margin: 1.5rem 0; box-shadow: var(--shadow); transition: box-shadow .2s ease; }
+        .card:hover { box-shadow: var(--shadow-hover); }
+
+        /* === Quote === */
+        .quote-block { border-left: 4px solid var(--accent); padding: 1.2rem 1.5rem; margin: 2rem 0; background: var(--bg-secondary); border-radius: 0 8px 8px 0; color: var(--text-secondary); font-size: 1.05rem; }
+
+        /* === Code === */
+        .code-block { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.2rem; overflow-x: auto; font-family: 'Roboto Mono', monospace; font-size: .82rem; line-height: 1.7; margin: 1rem 0; color: var(--text-secondary); white-space: pre; }
+
+        /* === Tags === */
+        .tag { display: inline-block; padding: 3px 12px; border-radius: 99px; font-size: .72rem; font-weight: 600; }
+        .tag-accent { background: #d6edff; color: #1d4a7a; }
+        .tag-success { background: #d4f7ee; color: #0d5c4d; }
+        .tag-info { background: #e0f7fa; color: #00695c; }
+        .tag-purple { background: #e8d5f5; color: #3b1f6e; }
+
+        /* === Stats === */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 2rem 0; }
+        .stat-card { text-align: center; padding: 1.5rem 1rem; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+        .stat-card:hover { box-shadow: var(--shadow-hover); }
+        .stat-number { font-size: 2rem; font-weight: 700; color: var(--accent); }
+        .stat-label { font-size: .78rem; color: var(--text-muted); margin-top: 4px; }
+
+        /* === Timeline === */
+        .timeline { position: relative; padding-left: 2rem; }
+        .timeline::before { content: ''; position: absolute; left: .5rem; top: 0; bottom: 0; width: 2px; background: var(--border); }
+        .timeline-item { position: relative; margin-bottom: 2rem; opacity: 0; transform: translateY(20px); transition: opacity .4s ease, transform .4s ease; will-change: opacity, transform; }
+        .timeline-item.visible { opacity: 1; transform: translateY(0); }
+        .timeline-item::before { content: ''; position: absolute; left: -1.75rem; top: 1.8rem; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 3px solid var(--bg-primary); }
+
+        /* === Architecture Tree === */
+        .architecture-tree { font-family: 'Roboto Mono', monospace; font-size: .82rem; line-height: 1.8; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; overflow-x: auto; white-space: pre; }
+
+        /* === History Links === */
+        .history-links { list-style: none; padding: 0; }
+        .history-links li { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; transition: background .15s; border-radius: 8px; }
+        .history-links li:hover { background: var(--bg-secondary); }
+        .history-links a { text-decoration: none; color: var(--text-primary); font-weight: 500; }
+        .history-links a:hover { color: var(--accent); }
+        .history-links i { color: var(--accent); }
+
+        /* === Responsive === */
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .hero h1 { font-size: 1.8rem; }
+            .container { padding: 0 1rem; }
+            .card { padding: 1.2rem 1.2rem; }
+        }
+        @media (max-width: 480px) {
+            .hero .meta { flex-direction: column; gap: .3rem; }
+            .stats-grid { grid-template-columns: 1fr 1fr; gap: .8rem; }
+        }
+    
+/* cbp-fx v1: reduced motion + card spotlight + button fill */
+:root { --fx-spot: rgba(64,153,255,.08); --fx-fill: rgba(64,153,255,.14); }
+.card, .stat-card { background-image: radial-gradient(420px circle at var(--mx, -999px) var(--my, -999px), var(--fx-spot), transparent 45%); }
+.cbp-nav .nav-controls button { position: relative; }
+.cbp-nav .nav-controls button, .back-to-top { overflow: hidden; isolation: isolate; }   /* back-to-top stays position: fixed */
+.cbp-nav .nav-controls button::before, .back-to-top::before {
+  content: ""; position: absolute; top: 50%; left: 50%; width: 0; height: 0; z-index: -1; border-radius: 50%;
+  background: var(--fx-fill); transform: translate(-50%, -50%); transition: width .5s ease, height .5s ease; pointer-events: none;
+}
+.back-to-top::before { background: rgba(255,255,255,.22); }
+.cbp-nav .nav-controls button:hover::before, .cbp-nav .nav-controls button:focus-visible::before,
+.back-to-top:hover::before, .back-to-top:focus-visible::before { width: 240px; height: 240px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+<link rel="stylesheet" href="../../cbp-base.css">
+</head>
+<body>
+<nav class="cbp-nav">
+  <a href="index.html" class="brand"><i class="fas fa-bolt"></i> Pure Lab</a>
+  <div class="nav-controls">
+    <button onclick="switchLang('zh')">中文</button>
+    <button class="active" onclick="switchLang('en')">EN</button>
+    <button onclick="toggleDark()"><i class="fas fa-adjust"></i></button>
+    <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> <span data-zh="返回" data-en="Back">Back</span></a>
+  </div>
+</nav>
+<div class="progress-bar" id="progressBar"></div>
+
+
+<!-- ============ CONTENT PLACEHOLDER ============ -->
+<!--
+  Structure: TL;DR -> Timeline (by week) -> Architecture -> Key Insights -> History
+  Placeholders: TITLE_ZH, TITLE_EN, SUBTITLE_ZH, SUBTITLE_EN, DATE_RANGE, READ_TIME, CONTENT, GEN_DATE (each wrapped in double braces)
+  Do not rewrite styles.
+-->
+
+{{CONTENT}}
+
+<script>
+/* Language + dark mode. Default EN; elements carry data-zh / data-en (leaf nodes: textContent is replaced). */
+function switchLang(lang) {
+    lang = lang === 'zh' ? 'zh' : 'en';
+    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+    document.querySelectorAll('[data-' + lang + ']').forEach(el => {
+        const v = el.getAttribute('data-' + lang);
+        if (v !== null) el.textContent = v;
+    });
+    document.querySelectorAll('.nav-controls button[onclick^="switchLang"]').forEach(btn => {
+        const on = btn.getAttribute('onclick').indexOf("'" + lang + "'") !== -1;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    try { localStorage.setItem('cbp-lang', lang); } catch (e) {}
+}
+function toggleDark() {
+    document.body.classList.toggle('dark');
+    try { localStorage.setItem('cbp-dark', document.body.classList.contains('dark') ? '1' : '0'); } catch (e) {}
+}
+(() => {
+    let lang = 'en', dark = '0';
+    try { lang = localStorage.getItem('cbp-lang') || 'en'; dark = localStorage.getItem('cbp-dark') || '0'; } catch (e) {}
+    if (dark === '1') document.body.classList.add('dark');
+    switchLang(lang);
+})();
+
+let ticking = false;
+window.addEventListener('scroll', () => {
+    if (!ticking) {
+        requestAnimationFrame(() => {
+            const h = document.documentElement.scrollHeight - window.innerHeight;
+            document.getElementById('progressBar').style.width = (h > 0 ? window.scrollY / h * 100 : 0) + '%';
+            ticking = false;
+        });
+        ticking = true;
+    }
+});
+
+// Scroll-triggered fade-in for timeline items
+const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.15 });
+document.querySelectorAll('.timeline-item').forEach(el => observer.observe(el));
+</script>
+<script>
+/* cbp-fx v1: card spotlight (one delegated listener, rAF-throttled; off under reduced motion) */
+(() => {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let raf = 0, last = null, x = 0, y = 0;
+  document.addEventListener('mousemove', e => {
+    const card = e.target.closest && e.target.closest('.card, .stat-card');
+    if (last && last !== card) { last.style.removeProperty('--mx'); last.style.removeProperty('--my'); }
+    last = card; x = e.clientX; y = e.clientY;          // listener only records; rAF reads the latest
+    if (!card || raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      if (!last) return;
+      const r = last.getBoundingClientRect();
+      last.style.setProperty('--mx', (x - r.left) + 'px');
+      last.style.setProperty('--my', (y - r.top) + 'px');
+    });
+  });
+})();
+</script>
+</body>
+</html>

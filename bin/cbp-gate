@@ -1,0 +1,362 @@
+#!/usr/bin/python3
+"""cbp-gate — operator CLI for the action gate (bin/action-gate.py).
+
+  cbp-gate approve <gate_id>   approve one blocked L3 action (8+ hex prefix of action_id), TTL from policy.
+                                Interactive only: you must type the gate_id back on /dev/tty; refuses to run
+                                under cbp-cli (CBP_* env or cbp-cli ancestor process).
+  cbp-gate list [N]            recent blocked/denied actions not yet approved (default 20)
+  cbp-gate tail [N]            last N decisions (default 20)
+  cbp-gate stats [--days D]    counts by level/verdict/rule/agent (default 7 days)
+  cbp-gate mode [shadow|enforce]  show or set policy mode
+  cbp-gate apply <date|file> [P01 ...]  apply gate-audit proposals (data/gate/proposals/<date>.json).
+                                Interactive only; each proposal confirmed with y/N on /dev/tty.
+                                Only additions: L1 (shell, ^-anchored, paths_under write_roots) or L3/DENY.
+                                Existing rules are never changed or removed; policy is backed up first.
+
+Run this in YOUR terminal. The gate denies the agent from calling `cbp-gate approve`.
+"""
+import collections
+import datetime
+import glob
+import json
+import os
+import re
+import sys
+import time
+
+# Paths come from action-gate (config files only, environment ignored) so the CLI, the audit and
+# the hook always agree on policy / data / approvals locations.
+import importlib.util as _ilu  # noqa: E402
+_spec = _ilu.spec_from_file_location("action_gate", os.path.join(os.path.dirname(os.path.realpath(__file__)), "action-gate.py"))
+_AG = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_AG)
+ROOT, CLI_HOME, P = _AG.ROOT, _AG.CLI_HOME, _AG.P
+LAB = str(ROOT)
+DATA = _AG.DATA
+POLICY_PATH = _AG.POLICY_PATH
+DATA_DIR = _AG.DATA_DIR
+TZ = _AG.tz()
+
+
+def _gate():
+    return _AG
+
+
+def _write_overlay(ag, ov, note):
+    """Validate (base + new overlay must load) then atomically replace config/gate-policy.local.json."""
+    path = ag.POLICY_LOCAL
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(ov, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    try:
+        ag.load_policy(POLICY_PATH, local=tmp)
+    except Exception:
+        os.unlink(tmp)
+        raise
+    if os.path.exists(path):
+        bdir = os.path.join(DATA_DIR, "policy-backups")
+        os.makedirs(bdir, exist_ok=True)
+        ts = datetime.datetime.now(TZ).strftime("%Y%m%d-%H%M%S")
+        with open(path) as src, open(os.path.join(bdir, "gate-policy.local.json.%s" % ts), "w") as dst:
+            dst.write(src.read())
+    os.replace(tmp, path)
+    print("%s → %s" % (note, path))
+
+
+def load_decisions(days=None):
+    files = sorted(glob.glob(os.path.join(DATA_DIR, "decisions-*.jsonl")))
+    cutoff = None
+    if days is not None:
+        cutoff = datetime.datetime.now(TZ) - datetime.timedelta(days=days)
+        keep = cutoff.strftime("%Y-%m")
+        files = [f for f in files if os.path.basename(f)[10:17] >= keep]
+    out = []
+    for fn in files:
+        with open(fn) as f:
+            for line in f:
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                if cutoff and rec.get("ts"):
+                    try:
+                        if datetime.datetime.fromisoformat(rec["ts"]) < cutoff:
+                            continue
+                    except ValueError:
+                        pass
+                out.append(rec)
+    return out
+
+
+def fmt(rec):
+    return "%s  %-5s %-8s %-8s %-22s %-14s %s  %s" % (
+        rec.get("ts", "")[5:19].replace("T", " "), rec.get("level", ""), rec.get("verdict", ""),
+        rec.get("mode", ""), rec.get("rule") or "-", rec.get("agent", ""),
+        (rec.get("action_id") or "")[:8], rec.get("summary") or rec.get("error", ""))
+
+
+def _agent_context():
+    """Return a reason string if we look like we are running inside a cbp-cli agent, else ''."""
+    for k in ("CBP_SESSION_ID", "CBP_CLI_ACP_CLIENT_NAME", "CBP_AGENT_DEPTH"):
+        if os.environ.get(k):
+            return "env %s is set" % k
+    pid = os.getppid()
+    for _ in range(64):
+        if pid <= 1:
+            break
+        try:
+            with open("/proc/%d/cmdline" % pid, "rb") as f:
+                cmdline = f.read().replace(b"\0", b" ").decode(errors="replace")
+            with open("/proc/%d/stat" % pid) as f:
+                stat = f.read()
+        except OSError:
+            break
+        if "cbp-cli" in cmdline:
+            return "ancestor process %d is cbp-cli" % pid
+        pid = int(stat.rsplit(")", 1)[1].split()[1])  # field 4: ppid
+    return ""
+
+
+def cmd_approve(args):
+    if not args:
+        sys.exit("usage: cbp-gate approve <gate_id>")
+    gid = args[0].lower()
+    if len(gid) < 8:
+        sys.exit("gate_id must be at least 8 hex chars")
+    why = _agent_context()
+    if why:
+        sys.exit("refusing: approve must be run by you in your own terminal, not by an agent (%s)" % why)
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        sys.exit("refusing: approve needs an interactive terminal")
+    matches = {}
+    for rec in load_decisions(days=1):
+        aid = rec.get("action_id") or ""
+        if aid.startswith(gid) and rec.get("level") == "L3":
+            matches[aid] = rec
+    if not matches:
+        sys.exit("no L3 action with gate_id %s in the last 24h (DENY actions cannot be approved)" % gid)
+    if len(matches) > 1:
+        sys.exit("ambiguous gate_id %s, use a longer prefix:\n%s" % (gid, "\n".join(matches)))
+    aid, rec = next(iter(matches.items()))
+    ttl = int(_gate().load_policy().get("approval_ttl_sec", 600))
+    print("Tool    : %s   Agent: %s" % (rec.get("tool"), rec.get("agent")))
+    print("Rule    : %s" % rec.get("rule"))
+    print("Trigger : %s" % rec.get("trigger", ""))
+    print("cwd     : %s" % rec.get("cwd"))
+    print("Full    :\n  %s" % (rec.get("detail") or rec.get("summary")).replace("\\n", "\n  "))
+    if "…[truncated]" in (rec.get("detail") or ""):
+        print("WARNING : command was longer than 2000 chars and is truncated above.")
+    answer = _tty_ask("Type the gate_id (%s) to approve this exact call once (valid %ds): " % (aid[:8], ttl)).strip().lower()
+    if answer != aid[:8]:
+        sys.exit("not approved")
+    adir = os.path.join(DATA_DIR, "approvals")
+    os.makedirs(adir, exist_ok=True)
+    rec_out = {"action_id": aid, "expires": time.time() + ttl,
+               "approved_at": datetime.datetime.now(TZ).isoformat(timespec="seconds"),
+               "approved_by": os.environ.get("USER", ""), "summary": rec.get("summary")}
+    tmp = os.path.join(adir, ".%s.tmp" % aid)
+    with open(tmp, "w") as f:
+        json.dump(rec_out, f)
+    os.replace(tmp, os.path.join(adir, aid + ".json"))
+    print("approved %s — the agent can now retry the identical call once." % aid[:8])
+
+
+def cmd_list(args):
+    n = int(args[0]) if args else 20
+    recs = load_decisions(days=1)
+    approved = {r["action_id"] for r in recs if r.get("verdict") == "approved"}
+    pending = os.listdir(os.path.join(DATA_DIR, "approvals")) if os.path.isdir(os.path.join(DATA_DIR, "approvals")) else []
+    seen, rows = set(), []
+    for r in reversed(recs):
+        aid = r.get("action_id")
+        if r.get("verdict") in ("block", "deny") and aid not in approved and aid not in seen:
+            seen.add(aid)
+            tag = " [approval waiting]" if (aid + ".json") in pending else ""
+            rows.append(fmt(r) + tag)
+    for line in rows[:n]:
+        print(line)
+    if not rows:
+        print("nothing blocked in the last 24h")
+
+
+def cmd_tail(args):
+    n = int(args[0]) if args else 20
+    for r in load_decisions(days=31)[-n:]:
+        print(fmt(r))
+
+
+def cmd_stats(args):
+    days = 7
+    if "--days" in args:
+        days = int(args[args.index("--days") + 1])
+    recs = load_decisions(days=days)
+    print("decisions in last %d days: %d" % (days, len(recs)))
+    for key in ("level", "verdict", "agent", "tool"):
+        c = collections.Counter(r.get(key) for r in recs)
+        print("\nby %s:" % key)
+        for k, v in c.most_common(12):
+            print("  %-30s %5d  %5.1f%%" % (k, v, 100.0 * v / max(len(recs), 1)))
+    c = collections.Counter(r.get("rule") for r in recs if r.get("level") in ("L3", "DENY"))
+    print("\nL3/DENY by rule (would block in enforce):")
+    for k, v in c.most_common(20):
+        print("  %-30s %5d" % (k, v))
+    l2 = collections.Counter(((r.get("summary") or "").split() or [""])[0] if r.get("tool") == "shell" else r.get("tool")
+                             for r in recs if r.get("level") == "L2")
+    print("\nL2 (unreviewed) top commands — candidates for L1 rules:")
+    for k, v in l2.most_common(15):
+        print("  %-30s %5d" % (k, v))
+    lat = sorted(r.get("latency_ms", 0) for r in recs if "latency_ms" in r)
+    if lat:
+        print("\nlatency ms: p50=%d p95=%d max=%d" % (lat[len(lat) // 2], lat[int(len(lat) * .95)], lat[-1]))
+    errs = sum(1 for r in recs if r.get("verdict") == "error")
+    print("gate errors: %d" % errs)
+
+
+def cmd_mode(args):
+    ag = _gate()
+    cur = ag.load_policy().get("mode")
+    if not args:
+        print(cur)
+        return
+    if args[0] not in ("shadow", "enforce"):
+        sys.exit("mode must be shadow or enforce")
+    why = _agent_context()
+    if why:
+        sys.exit("refusing: mode must be changed by you in your own terminal, not by an agent (%s)" % why)
+    ov = ag.read_overlay()
+    ov["mode"] = args[0]
+    _write_overlay(ag, ov, "mode: %s -> %s" % (cur, args[0]))
+
+
+ALLOWED_RULE_KEYS = {"id", "level", "tool", "cmd", "unless_cmd", "paths_under", "note"}
+AUTO_ID_RE = re.compile(r"^(l1|l3|deny)-auto-[a-z0-9-]{1,48}$")
+
+
+def _tty_ask(prompt):
+    """Write a prompt to the controlling terminal and read one line from it.
+    Separate read/write handles: text-mode "r+" on a tty raises UnsupportedOperation (not seekable)."""
+    with open("/dev/tty", "w") as out, open("/dev/tty") as inp:
+        out.write(prompt)
+        out.flush()
+        return inp.readline()
+
+
+def validate_proposal(p, existing_ids):
+    """Return list of problems (empty = ok). Pure function, unit-tested."""
+    errs = []
+    if p.get("action") != "add_rule":
+        return ["action must be add_rule"]
+    r = p.get("rule") or {}
+    extra = set(r) - ALLOWED_RULE_KEYS
+    if extra:
+        errs.append("unsupported rule keys: %s" % sorted(extra))
+    rid = r.get("id", "")
+    if not AUTO_ID_RE.match(rid):
+        errs.append("id must match %s" % AUTO_ID_RE.pattern)
+    if rid in existing_ids:
+        errs.append("id %s already exists" % rid)
+    lvl = r.get("level")
+    if lvl not in ("L1", "L3", "DENY"):
+        errs.append("level must be L1, L3 or DENY (L0 skips path checks; L2 is not a rule level)")
+    if rid and lvl and not rid.startswith({"L1": "l1-", "L3": "l3-", "DENY": "deny-"}.get(lvl, "?")):
+        errs.append("id prefix does not match level")
+    for k in ("tool", "cmd", "unless_cmd"):
+        if r.get(k):
+            try:
+                re.compile(r[k])
+            except re.error as e:
+                errs.append("%s: bad regex (%s)" % (k, e))
+    if not r.get("cmd") and r.get("tool") == "shell":
+        errs.append("shell rule needs cmd")
+    if lvl == "L1":
+        if r.get("tool") != "shell":
+            errs.append("L1 auto rules must be tool=shell")
+        if not str(r.get("cmd", "")).startswith("^"):
+            errs.append("L1 cmd must be ^-anchored")
+        if r.get("paths_under") != "write_roots":
+            errs.append("L1 auto rules must have paths_under=write_roots")
+        # must start with a literal command word (e.g. ^make\s..., ^git\s+lfs...), no wildcards up front
+        if not re.match(r"^\^[A-Za-z0-9_][A-Za-z0-9_\\.-]*", r.get("cmd", "")):
+            errs.append("L1 cmd too broad: must start with a literal command word")
+        if re.search(r"\.[*+]", r.get("cmd", "")):
+            errs.append("L1 cmd too broad: no .* / .+ allowed")
+    return errs
+
+
+def _templatize(rule):
+    """Replace this machine's paths with policy placeholders so applied rules stay portable / leak-free."""
+    ag = _gate()
+    # most specific first: ROOT / CLI_HOME usually live under HOME
+    subs = [(str(ROOT), "CBP_ROOT"), (str(CLI_HOME), "CLI_HOME"), (ag.HOME, "HOME")]
+    out = {}
+    for k, v in rule.items():
+        if isinstance(v, str):
+            for lit, ph in subs:
+                if k in ("cmd", "unless_cmd", "wpath_match", "paths_outside_re", "unless_tool", "argv_any"):
+                    v = v.replace(re.escape(lit), "{{%s_RE}}" % ph)   # regex fields hold re.escape()d literals
+                v = v.replace(lit, "{{%s}}" % ph)
+        out[k] = v
+    return out
+
+
+def cmd_apply(args):
+    if not args:
+        sys.exit("usage: cbp-gate apply <date|file> [P01 ...]")
+    why = _agent_context()
+    if why:
+        sys.exit("refusing: apply must be run by you in your own terminal, not by an agent (%s)" % why)
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        sys.exit("refusing: apply needs an interactive terminal")
+    src = args[0]
+    if not os.path.exists(src):
+        src = os.path.join(DATA_DIR, "proposals", src + ".json")
+    with open(src) as f:
+        doc = json.load(f)
+    only = set(args[1:])
+    ag = _gate()
+    ids = {r["id"] for r in ag.load_policy()["rules"]}
+    chosen = []
+    for p in doc.get("proposals", []):
+        if only and p.get("id") not in only:
+            continue
+        errs = validate_proposal(p, ids | {r["id"] for r in chosen})
+        e = p.get("evidence", {})
+        print("\n%s %s  key=%r  hits=%s sessions=%s" % (p.get("id"), p.get("kind"), e.get("key"),
+                                                      e.get("count"), e.get("sessions")))
+        for smp in e.get("samples", []):
+            print("   e.g. %s" % smp[:160])
+        print("   rule: %s" % json.dumps(p.get("rule"), ensure_ascii=False))
+        if errs:
+            print("   REJECTED: %s" % "; ".join(errs))
+            continue
+        if _tty_ask("   add this rule? [y/N] ").strip().lower() == "y":
+            chosen.append(p["rule"])
+    if not chosen:
+        sys.exit("\nnothing applied")
+    if _tty_ask("\nType 'apply' to add %d rule(s) to %s: " % (len(chosen), ag.POLICY_LOCAL)).strip() != "apply":
+        sys.exit("not applied")
+    chosen = [_templatize(r) for r in chosen]
+    ov = ag.read_overlay()
+    ov["rules"] = list(ov.get("rules") or []) + chosen
+    _write_overlay(ag, ov, "applied %d rule(s)" % len(chosen))
+    with open(os.path.join(DATA_DIR, "applied.jsonl"), "a") as f:
+        f.write(json.dumps({"ts": datetime.datetime.now(TZ).isoformat(timespec="seconds"), "source": src,
+                            "rules": chosen, "target": ag.POLICY_LOCAL}, ensure_ascii=False) + "\n")
+
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "help"):
+        print(__doc__)
+        return
+    cmds = {"approve": cmd_approve, "list": cmd_list, "tail": cmd_tail, "stats": cmd_stats, "mode": cmd_mode,
+            "apply": cmd_apply}
+    fn = cmds.get(sys.argv[1])
+    if not fn:
+        sys.exit("unknown command %s\n%s" % (sys.argv[1], __doc__))
+    fn(sys.argv[2:])
+
+
+if __name__ == "__main__":
+    main()

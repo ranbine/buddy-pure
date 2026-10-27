@@ -1,0 +1,78 @@
+{
+  "_comment": "Action-gate policy. Double-brace placeholders are expanded by bin/action-gate.py load_policy() from config/paths.env + config/local.env; see contexts/tips/tools/action-gate.md",
+  "version": 2,
+  "mode": "shadow",
+  "l2_default": "allow",
+  "approval_ttl_sec": 600,
+  "self_emails": [
+    "{{SELF_EMAILS}}"
+  ],
+  "gated_agents": [
+    "{{GATED_AGENTS}}"
+  ],
+  "write_roots": [
+    "{{CBP_ROOT}}/",
+    "{{CLI_HOME}}/",
+    "{{TMP_PREFIX}}",
+    "{{SCRATCH_DIRS}}"
+  ],
+  "delete_roots": [
+    "{{TMP_PREFIX}}",
+    "{{CBP_TMP}}/",
+    "{{SCRATCH_DIRS}}"
+  ],
+  "protected_paths": [
+    "{{CLI_HOME}}/agents/",
+    "{{CLI_HOME}}/settings/cli.json",
+    "{{CBP_ROOT}}/.codebuddy/rules/gate-policy.json",
+    "{{CBP_ROOT}}/config/",
+    "{{CBP_ROOT}}/bin/lib/",
+    "{{CBP_ROOT}}/bin/action-gate.py",
+    "{{CBP_ROOT}}/bin/cbp-gate",
+    "{{CBP_ROOT}}/bin/gate-install.py",
+    "{{CBP_ROOT}}/bin/agent-trace.py",
+    "{{CBP_DATA}}/agent-trace/",
+    "{{CBP_DATA}}/gate/"
+  ],
+  "rules": [
+    {"id": "deny-cbp-gate", "level": "DENY", "tool": "shell", "cmd": "^((python3?|bash|sh)\\s+)?(\\S*/)?cbp-gate(\\s|$)(?!\\s*(list|tail|stats)\\b)", "note": "agent may only read gate state; approve/mode are user-only"},
+    {"id": "deny-gate-install", "level": "DENY", "tool": "shell", "cmd": "^((python3?)\\s+)?(\\S*/)?gate-install\\.py(\\s+(?!status\\b)\\S|\\s*$)", "note": "agent may only run `gate-install.py status`"},
+    {"id": "deny-protected", "level": "DENY", "tool": "shell|write", "wpath_in": "protected_paths", "note": "gate, policy, approvals, agent configs: user edits only"},
+    {"id": "deny-rm-outside", "level": "DENY", "tool": "shell", "cmd": "^(rm|rmdir|unlink|shred)\\b|^find\\b.*\\s-delete\\b", "paths_outside_re": "{{DELETE_OK_RE}}", "note": "Red Line: only allow-listed paths (CBP_DELETE_ALLOW, scratch dirs, tmp prefix) may be deleted"},
+    {"id": "l3-protected-tree", "level": "L3", "tool": "shell", "wtree_covers": "protected_paths", "note": "recursive copy / extract into a tree that contains protected files"},
+    {"id": "l3-cbp-settings", "level": "L3", "tool": "shell", "cmd": "^((~|{{HOME_RE}})/\\.local/bin/)?cbp-cli(-chat)?\\s+(settings|agent)\\s+\\S+(\\s+\\S|=)", "note": "changing CLI settings (e.g. chat.defaultAgent) or agent definitions"},
+    {"id": "l3-patch", "level": "L3", "tool": "shell", "cmd": "^(patch\\b|git\\s+((-C|-c)\\s+\\S+\\s+|--[\\w-]+(=\\S+)?\\s+)*(apply|am)\\b)", "unless_cmd": "\\s--(check|stat|numstat|summary)\\b|\\s--dry-run\\b", "note": "patches can modify any file (incl. gate files); targets are inside the diff"},
+    {"id": "unknown-cwd", "level": "L3", "tool": "shell", "builtin": true, "note": "emitted by the classifier: cd to an unresolvable dir, then a relative-path modification"},
+    {"id": "unparseable", "level": "L3", "tool": "shell", "builtin": true, "note": "emitted by the classifier: shell text the parser cannot split"},
+    {"id": "l3-delete", "level": "L3", "tool": "shell", "cmd": "^(rm|rmdir|unlink|shred)\\b|^find\\b.*\\s-delete\\b|^truncate\\b|^rsync\\b.*\\s--delete", "unless_paths_inside": "delete_roots"},
+    {"id": "l3-mv-outside", "level": "L3", "tool": "shell", "cmd": "^mv\\b", "paths_any_outside": "write_roots"},
+    {"id": "l3-sudo", "level": "L3", "tool": "shell", "cmd": "^(sudo|su|doas|pkexec)\\b"},
+    {"id": "l3-eval-source", "level": "L3", "tool": "shell", "cmd": "^(source|\\.)(\\s|$)"},
+    {"id": "l3-shell-stdin", "level": "L3", "tool": "shell", "cmd": "^__shell_stdin__\\b", "note": "shell reading its script from stdin (curl | bash, bash <<< ...)"},
+    {"id": "l3-git-push", "level": "L3", "tool": "shell", "cmd": "^git\\s+((-C|-c)\\s+\\S+\\s+|--[\\w-]+(=\\S+)?\\s+)*push\\b"},
+    {"id": "l3-git-destructive", "level": "L3", "tool": "shell", "cmd": "^git\\s+((-C|-c)\\s+\\S+\\s+|--[\\w-]+(=\\S+)?\\s+)*(reset\\b.*--hard|clean\\b.*\\s-\\w*f|branch\\b.*\\s-D\\b|checkout\\s+(.*\\s)?(--(\\s|$)|\\.(\\s|$))|restore\\b(?!.*--staged)|rebase\\b|filter-branch\\b|update-ref\\s+-d|stash\\s+(drop|clear)|reflog\\s+(expire|delete)|gc\\b.*--prune)"},
+    {"id": "l3-push-flag", "level": "L3", "tool": "shell", "argv_any": "--push(=.*)?", "note": "scripts that push internally, e.g. publish scripts with --push"},
+    {"id": "l3-ungated-agent", "level": "L3", "tool": "shell", "cmd": "^((~|{{HOME_RE}})/\\.local/bin/)?cbp-cli(-chat)?\\b.*\\bchat\\b", "unless_cmd": "--agent[\\s=]+({{GATED_AGENTS_RE}})(\\s|$)|^(?!.*--agent)", "note": "agents without gate hooks (e.g. default)"},
+    {"id": "l3-ungated-run-agent", "level": "L3", "tool": "shell", "cmd": "^((bash|sh)\\s+)?(\\S*/)?run-agent\\.sh\\s+(?!-|({{GATED_AGENTS_RE}})(\\s|$))\\S"},
+    {"id": "l3-image-push", "level": "L3", "tool": "shell", "cmd": "^(docker|podman|helm)\\s+push\\b"},
+    {"id": "l3-mail-external", "level": "L3", "tool": "shell", "cmd": "^(s-nail|mail|mailx|sendmail)\\b", "emails_not_subset_of": "self_emails"},
+    {"id": "l3-example-mcp-write", "level": "L3", "tool": "@example-mcp/(create_|update_|delete_|submit_|add_).*", "note": "EXAMPLE: name the write tools of a specific MCP server here"},
+    {"id": "l3-mcp-write-default", "level": "L3", "tool": "@[^/]+/.*", "unless_tool": "@[^/]+/(get_|search_|list_|check_|show_).*", "note": "any MCP tool not recognised as read-only; add per-server rules above for finer control"},
+    {"id": "l3-k8s-write", "level": "L3", "tool": "shell", "cmd": "^(kubectl|oc)\\s+(.*\\s)?(delete|apply|patch|scale|rollout|edit|replace|drain|cordon|uncordon|taint|label|annotate|exec|create|run|set|cp|expose|autoscale|certificate|debug|attach|port-forward)(\\s|$)|^helm\\s+(.*\\s)?(install|upgrade|uninstall|delete|rollback)(\\s|$)", "unless_cmd": "^(kubectl|oc)\\s+(.*\\s)?exec\\s[^;&|>]*\\s--\\s+(cat|ls|grep|egrep|tail|head|ps|df|du|env|date|top|netstat|ss|find|wc|stat)\\b[^;&|>]*$"},
+    {"id": "l3-credentials", "level": "L3", "tool": "shell|write", "wpath_match": "(/\\.ssh/|\\.netrc$|\\.git-credentials$|(^|/)\\.env(\\.[^/]*)?$|\\.token$|\\.key$)", "note": "writes only; reads are not gated"},
+    {"id": "l3-perms", "level": "L3", "tool": "shell", "cmd": "^(chown|setfacl)\\b|^chmod\\s+(-R\\s+)?(0?777|a\\+w|o\\+w)\\b|^crontab\\s+-r\\b"},
+    {"id": "l3-protected-arg", "level": "L3", "tool": "shell", "applies": "modify", "dpath_in": "protected_paths", "unknown_write_semantics": true, "note": "a script/command given a protected file as data"},
+    {"id": "l3-interp-delete", "level": "L3", "tool": "shell", "cmd": "^(python[\\d.]*|perl|ruby|node|__interp_body__)\\b.*(rmtree|os\\.remove|os\\.unlink|\\.unlink\\(|os\\.rmdir|removedirs|unlinkSync|rmSync|rmdirSync|\\bunlink\\b|['\"\\[\\s(]rm['\"]?[\\s,]+['\"]?-|['\"]rm['\"])"},
+    {"id": "l3-interp-push", "level": "L3", "tool": "shell", "cmd": "^(python[\\d.]*|perl|ruby|node|__interp_body__)\\b.*(git['\"\\s,\\]]+push|['\"]push['\"])"},
+    {"id": "l3-interp-protected", "level": "L3", "tool": "shell", "cmd": "^(python[\\d.]*|perl|ruby|node|__interp_body__)\\b", "text_mentions": "protected_paths"},
+    {"id": "l0-mcp-read", "level": "L0", "tool": "@[^/]+/(get_|search_|list_|check_|show_).*"},
+    {"id": "l0-shell-readonly", "level": "L0", "tool": "shell", "cmd": "^(ls|cat|head|tail|wc|stat|file|which|type|date|echo|printf|pwd|grep|egrep|fgrep|rg|diff|cmp|du|df|ps|id|whoami|hostname|uname|true|false|test|\\[|sort|uniq|cut|tr|column|jq|realpath|readlink|basename|dirname|md5sum|sha256sum|strings|less|more|tree|find|awk|sleep|uptime|free|nproc|read|export|local|set|unset|shift|exit|return|break|continue|:|wait|seq|xxd|od|nl|paste|join|comm|fold|expand|rev|tac|zcat|zgrep|lsof|top|env|history)(\\s|$)|^git\\s+((-C|-c)\\s+\\S+\\s+|--[\\w-]+(=\\S+)?\\s+)*((status|log|diff|show|rev-parse|fetch|blame|ls-files|ls-tree|describe|shortlog|grep|cat-file|merge-base)\\b|(branch(\\s+(-a|-r|-v|-vv|--list|--show-current|--contains\\s+\\S+))*|remote(\\s+-v)?|tag(\\s+-l.*)?|config\\s+--get\\s+\\S+|reflog)\\s*$|remote\\s+(show|get-url)\\b)|^(kubectl|oc)\\s+((-n|--namespace|--context|--kubeconfig|--cluster)(=|\\s+)\\S+\\s+)*(get|describe|logs|top|explain|api-resources|version|config\\s+(view|current-context|get-contexts))\\b|^((python3?)\\s+)?(\\S*/)?cbp-gate\\s+(list|tail|stats)\\b|^(\\S*/)?gate-install\\.py\\s+status\\b|^helm\\s+(list|ls|status|get|history|version)\\b", "unless_cmd": "^find\\b.*\\s(-delete|-exec|-execdir|-ok|-okdir|-fprint\\S*|-fls)\\b|^awk\\b.*(system\\s*\\(|>|-i\\s*inplace)|^sort\\b.*(\\s-o\\s*\\S|--output)|^uniq(\\s+-\\S+)*\\s+[^-\\s]\\S*\\s+[^-\\s]\\S*|--output(=|\\s)|^tree\\b.*\\s-o\\s"},
+    {"id": "l1-delete-scratch", "level": "L1", "tool": "shell", "cmd": "^(rm|rmdir|unlink)\\b|^find\\b.*\\s-delete\\b", "paths_inside": "delete_roots", "note": "deleting inside own scratch dirs needs no approval"},
+    {"id": "l1-delegate", "level": "L1", "tool": "delegate|use_subagent|subagent", "note": "subagents are gated by their own hooks"},
+    {"id": "l1-write-own", "level": "L1", "tool": "write", "paths_under": "write_roots"},
+    {"id": "l1-kubectl-exec-ro", "level": "L1", "tool": "shell", "cmd": "^(kubectl|oc)\\s+(.*\\s)?exec\\s[^;&|>]*\\s--\\s+(cat|ls|grep|egrep|tail|head|ps|df|du|env|date|top|netstat|ss|find|wc|stat)\\b[^;&|>]*$"},
+    {"id": "l1-shell-own", "level": "L1", "tool": "shell", "cmd": "^(mkdir|cp|mv|touch|ln|chmod|tar|gzip|gunzip|zip|unzip|python[\\d.]*|bash|sh|make|pytest|sed|tee|git\\s+((-C|-c)\\s+\\S+\\s+|--[\\w-]+(=\\S+)?\\s+)*(add|commit|stash(\\s+(push|save|list|show|pop|apply))?|checkout|switch|mv|restore|init|clone|pull|merge|branch|tag|cherry-pick|revert|apply))\\b", "unless_cmd": "^(python[\\d.]*|bash|sh)\\s+(-c|-)(\\s|$)", "paths_under": "write_roots"},
+    {"id": "l1-own-bin", "level": "L1", "tool": "shell", "cmd": "^((python3?|bash)\\s+)?({{CBP_ROOT_RE}}|{{CLI_HOME_RE}})/bin/|^((~|{{HOME_RE}})/\\.local/bin/)?cbp-cli(-chat)?\\s+chat\\b", "unless_cmd": "cbp-gate"},
+    {"id": "l1-mail-self", "level": "L1", "tool": "shell", "cmd": "^(s-nail|mail|mailx)\\b", "emails_subset_of": "self_emails"}
+  ]
+}

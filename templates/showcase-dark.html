@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE_EN}} — Pure Lab</title>
+<link rel="stylesheet" href="../cbp-base.css">
+<style>
+/* showcase-dark: display pages (demo / intro / methodology). Not for reports. */
+:root {
+  --sd-bg: #0a0a0c;
+  --sd-text: #f4f4f6;
+  --sd-muted: #8a8a93;            /* 5.7:1 on --sd-bg (WCAG AA) */
+  --sd-line: rgba(255,255,255,.06);
+  --sd-card: rgba(255,255,255,.03);
+  --sd-pink: #ff007f; --sd-violet: #9b5cf0; --sd-cyan: #00dfd8;
+  --sd-sans: "Inter", "Segoe UI", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  /* cbp-base.css compat (nav) */
+  --kb-bg: var(--sd-bg); --kb-surface: #141418; --kb-text: var(--sd-text);
+  --kb-text-s: #c9c9d1; --kb-text-m: var(--sd-muted); --kb-accent: var(--sd-cyan); --kb-border: #26262c;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--sd-bg); color: var(--sd-text); font-family: var(--sd-sans); overflow-x: hidden; min-height: 100vh; line-height: 1.6; }
+
+.cbp-nav { background: rgba(10,10,12,.72); border-bottom: 1px solid var(--sd-line); }
+.cbp-nav .brand { font-family: var(--sd-sans); color: var(--sd-text); }
+.cbp-nav .nav-controls button { background: transparent; color: var(--sd-muted); border: 1px solid #2a2a31; }
+.cbp-nav .nav-controls button.active, .cbp-nav .nav-controls button:hover { color: var(--sd-text); border-color: var(--sd-cyan); background: transparent; }
+
+/* Background: slow pulsing mesh + cursor glow */
+.bg-mesh { position: fixed; inset: 0; z-index: 0; opacity: .7; pointer-events: none;
+  background: radial-gradient(at 10% 20%, rgba(91,33,182,.2) 0, transparent 50%),
+              radial-gradient(at 90% 80%, rgba(6,182,212,.2) 0, transparent 50%);
+  filter: blur(40px); animation: sdPulse 10s ease-in-out infinite alternate; }
+@keyframes sdPulse { to { transform: scale(1.1); } }
+.cursor-glow { position: fixed; top: 0; left: 0; width: 300px; height: 300px; z-index: 1; pointer-events: none;
+  background: radial-gradient(circle, rgba(138,43,226,.15) 0%, rgba(0,212,255,0) 70%);
+  transform: translate(-50%, -50%); opacity: 0; transition: opacity .3s; }
+
+main { position: relative; z-index: 2; max-width: 1200px; margin: 0 auto; padding: 5rem 2rem 4rem;
+  display: flex; flex-direction: column; align-items: center; min-height: calc(100vh - 56px); }
+
+/* Hero */
+.hero { text-align: center; margin-bottom: 4.5rem; animation: sdUp 1.2s cubic-bezier(.2,1,.2,1) both; }
+.hero .eyebrow { font-size: .8rem; letter-spacing: 4px; text-transform: uppercase; color: var(--sd-cyan); margin-bottom: 1rem; }
+.hero h1 { font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 800; letter-spacing: -1px; line-height: 1.15;
+  background: linear-gradient(135deg, var(--sd-pink), var(--sd-violet), var(--sd-cyan), var(--sd-pink));
+  background-size: 300% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  animation: sdShine 8s linear infinite; }
+@keyframes sdShine { to { background-position: 300% center; } }
+.hero p { font-size: 1.15rem; color: var(--sd-muted); margin-top: 1rem; letter-spacing: 1px; max-width: 760px; }
+
+/* Cards: entrance stagger (JS sets --i), then JS takes over transform for 3D tilt */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 2rem; width: 100%; }
+.card { position: relative; overflow: hidden; padding: 2.2rem; border-radius: 20px; cursor: default;
+  background: var(--sd-card); border: 1px solid var(--sd-line); backdrop-filter: blur(10px);
+  transform-style: preserve-3d; transition: border-color .5s, box-shadow .5s;
+  animation: sdUp 1.1s cubic-bezier(.2,1,.2,1) both; animation-delay: calc(300ms + var(--i, 0) * 90ms); }
+.card.ready { animation: none; transition: border-color .5s, box-shadow .5s, transform .15s ease-out; }
+.card:hover { border-color: rgba(0,223,216,.4); box-shadow: 0 20px 40px rgba(0,0,0,.4), 0 0 30px rgba(0,223,216,.1); }
+.card::before { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background: radial-gradient(600px circle at var(--mx, -999px) var(--my, -999px), rgba(255,255,255,.06), transparent 40%); }
+.card-icon { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; margin-bottom: 1.4rem; color: var(--sd-cyan);
+  background: linear-gradient(135deg, rgba(121,40,202,.2), rgba(0,223,216,.2)); transition: transform .3s; }
+.card:hover .card-icon { transform: scale(1.1) translateZ(20px); }
+.card h3 { font-size: 1.35rem; font-weight: 600; margin-bottom: .7rem; }
+.card p { color: var(--sd-muted); font-size: .95rem; }
+.card .tag { display: inline-block; margin-top: 1rem; font-size: .75rem; color: var(--sd-cyan); border: 1px solid rgba(0,223,216,.3); border-radius: 999px; padding: 2px 10px; }
+@keyframes sdUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Optional extra section (diagram, timeline...) */
+.extra { width: 100%; margin-top: 4.5rem; }
+.extra h2 { font-size: 1.6rem; font-weight: 700; text-align: center; margin-bottom: 2rem; }
+
+/* CTA button: center-out gradient fill */
+.fancy-btn { margin-top: 4rem; padding: 1rem 2.5rem; border-radius: 50px; border: 2px solid var(--sd-text);
+  background: transparent; color: var(--sd-text); font: 600 1rem var(--sd-sans); cursor: pointer; text-decoration: none;
+  position: relative; overflow: hidden; isolation: isolate; transition: border-color .4s; }
+.fancy-btn::before { content: ""; position: absolute; top: 50%; left: 50%; width: 0; height: 0; z-index: -1; border-radius: 50%;
+  background: linear-gradient(135deg, var(--sd-violet), var(--sd-cyan)); transform: translate(-50%, -50%);
+  transition: width .6s ease, height .6s ease; }
+.fancy-btn:hover, .fancy-btn:focus-visible { border-color: transparent; }
+.fancy-btn:hover::before, .fancy-btn:focus-visible::before { width: 320px; height: 320px; }
+
+footer { position: relative; z-index: 2; text-align: center; color: var(--sd-muted); font-size: .8rem; padding: 2rem 1rem 3rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .cursor-glow { display: none; }
+}
+@media (max-width: 640px) { main { padding-top: 3rem; } .card { padding: 1.6rem; } }
+</style>
+<style>{{EXTRA_CSS}}</style>
+</head>
+<body>
+<nav class="cbp-nav">
+  <a href="../index.html" class="brand">⚡ Pure Lab</a>
+  <div class="nav-controls">
+    <button onclick="switchLang('zh-CN')" id="btnZh">中文</button>
+    <button class="active" onclick="switchLang('en')" id="btnEn">EN</button>
+    <a href="../index.html" class="back-link" data-zh="← 返回" data-en="← Back">← Back</a>
+  </div>
+</nav>
+<div class="bg-mesh" aria-hidden="true"></div>
+<div class="cursor-glow" id="sdGlow" aria-hidden="true"></div>
+
+<main>
+  <section class="hero">
+    <div class="eyebrow" data-zh="{{EYEBROW_ZH}}" data-en="{{EYEBROW_EN}}">{{EYEBROW_EN}}</div>
+    <h1 data-zh="{{TITLE_ZH}}" data-en="{{TITLE_EN}}">{{TITLE_EN}}</h1>
+    <p data-zh="{{SUBTITLE_ZH}}" data-en="{{SUBTITLE_EN}}">{{SUBTITLE_EN}}</p>
+  </section>
+
+  <section class="card-grid">
+{{CARDS}}
+  </section>
+
+{{EXTRA}}
+
+  <a class="fancy-btn" href="{{CTA_HREF}}" data-zh="{{CTA_ZH}}" data-en="{{CTA_EN}}">{{CTA_EN}}</a>
+</main>
+
+<footer data-zh="生成于 {{GEN_DATE}} · Pure Lab" data-en="Generated {{GEN_DATE}} · Pure Lab">Generated {{GEN_DATE}} · Pure Lab</footer>
+
+<script>
+function switchLang(lang) {
+  document.documentElement.lang = lang;
+  document.querySelectorAll('.nav-controls button').forEach(b => b.classList.remove('active'));
+  document.getElementById(lang === 'zh-CN' ? 'btnZh' : 'btnEn').classList.add('active');
+  const zh = lang === 'zh-CN';
+  document.querySelectorAll('[data-zh]').forEach(el => { el.innerHTML = zh ? el.getAttribute('data-zh') : el.getAttribute('data-en'); });
+}
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cards = [...document.querySelectorAll('.card')];
+  cards.forEach((c, i) => {
+    c.style.setProperty('--i', i);
+    // the entrance animation owns `transform`; release it so the tilt below can take over
+    const ready = () => c.classList.add('ready');
+    if (reduce) ready(); else c.addEventListener('animationend', ready, { once: true });
+  });
+  if (reduce) return;
+
+  const glow = document.getElementById('sdGlow');
+  let raf = 0, x = 0, y = 0, card = null;
+  document.addEventListener('mousemove', e => {
+    x = e.clientX; y = e.clientY;
+    const hit = e.target.closest && e.target.closest('.card');
+    if (card && card !== hit) { card.style.removeProperty('--mx'); card.style.removeProperty('--my'); card.style.transform = ''; }
+    card = hit;
+    if (raf) return;
+    raf = requestAnimationFrame(() => {        // one listener, one paint per frame, latest position
+      raf = 0;
+      glow.style.opacity = '1';
+      glow.style.left = x + 'px'; glow.style.top = y + 'px';
+      if (!card || !card.classList.contains('ready')) return;
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--mx', (x - r.left) + 'px');
+      card.style.setProperty('--my', (y - r.top) + 'px');
+      const rx = (-(y - r.top - r.height / 2) / r.height * 16).toFixed(2);
+      const ry = ((x - r.left - r.width / 2) / r.width * 16).toFixed(2);
+      card.style.transform = `perspective(1000px) rotateX(${rx}deg) rotateY(${ry}deg) scale3d(1.02,1.02,1.02)`;
+    });
+  });
+  document.documentElement.addEventListener('mouseleave', () => {
+    glow.style.opacity = '0';
+    if (card) { card.style.removeProperty('--mx'); card.style.removeProperty('--my'); card.style.transform = ''; card = null; }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+{
+  "_comment": "Dispatch table for html-generater agent. type -> template + style + publish target. Single source of truth for report allocation.",
+  "_default": "daily",
+  "daily": {
+    "template": "daily-report.html",
+    "palette": "report",
+    "icon": "📋",
+    "accent": "#D97757",
+    "eyebrow_zh": "每日对话总结",
+    "eyebrow_en": "Daily Summary",
+    "publish_dir": "reports/daily",
+    "index_tag": "Daily"
+  },
+  "weekly": {
+    "template": "daily-report.html",
+    "palette": "report",
+    "icon": "📊",
+    "accent": "#788C5D",
+    "eyebrow_zh": "周报",
+    "eyebrow_en": "Weekly Review",
+    "publish_dir": "reports/reviews",
+    "index_tag": "Weekly"
+  },
+  "biweekly": {
+    "template": "biweekly-review.html",
+    "palette": "report",
+    "icon": "📈",
+    "accent": "#00bcd4",
+    "eyebrow_zh": "双周回顾",
+    "eyebrow_en": "Bi-weekly Review",
+    "publish_dir": "reports/reviews",
+    "index_tag": "Biweekly"
+  },
+  "monthly": {
+    "template": "monthly-review.html",
+    "palette": "report",
+    "icon": "🎯",
+    "accent": "#4B7BC4",
+    "eyebrow_zh": "月度回顾",
+    "eyebrow_en": "Monthly Review",
+    "publish_dir": "reports/reviews",
+    "index_tag": "Review"
+  },
+  "insight": {
+    "template": "insight.html",
+    "palette": "report",
+    "icon": "💡",
+    "accent": "#B8860B",
+    "eyebrow_zh": "洞察",
+    "eyebrow_en": "Insight",
+    "publish_dir": "reports/insight",
+    "index_tag": "Insight"
+  },
+  "scope": {
+    "template": "scope-check.html",
+    "palette": "report",
+    "icon": "🔍",
+    "accent": "#4099ff",
+    "eyebrow_zh": "范围检查",
+    "eyebrow_en": "Scope Check",
+    "publish_dir": "reports/scope",
+    "index_tag": "Scope"
+  },
+  "health": {
+    "template": "daily-report.html",
+    "palette": "report",
+    "icon": "🏥",
+    "accent": "#788C5D",
+    "eyebrow_zh": "知识库健康",
+    "eyebrow_en": "Knowledge Health",
+    "publish_dir": "reports/health",
+    "index_tag": "Health"
+  },
+  "showcase": {
+    "template": "showcase-dark.html",
+    "palette": "showcase-dark",
+    "icon": "✨",
+    "accent": "#00dfd8",
+    "eyebrow_zh": "展示",
+    "eyebrow_en": "Showcase",
+    "publish_dir": "showcase",
+    "index_tag": "Showcase",
+    "use_for": "display pages only (demo / intro / methodology): hero + 3–9 cards + optional extra section. Never for daily/weekly/monthly/scope reports.",
+    "placeholders": [
+      "TITLE_ZH",
+      "TITLE_EN",
+      "SUBTITLE_ZH",
+      "SUBTITLE_EN",
+      "EYEBROW_ZH",
+      "EYEBROW_EN",
+      "CARDS",
+      "EXTRA",
+      "EXTRA_CSS",
+      "CTA_ZH",
+      "CTA_EN",
+      "CTA_HREF",
+      "GEN_DATE"
+    ],
+    "card_markup": "<div class=\"card\"><div class=\"card-icon\">①</div><h3 data-zh=\"中文\" data-en=\"English\">English</h3><p data-zh=\"中文\" data-en=\"English\">English</p><span class=\"tag\" data-zh=\"中文\" data-en=\"English\">English</span></div>  (tag optional; all visible text via data-zh/data-en; no CJK in svg)",
+    "extra_markup": "<section class=\"extra\"><h2 data-zh=\"…\" data-en=\"…\">…</h2>…</section>  or empty string; section CSS goes in {{EXTRA_CSS}} (head), not inline <style>",
+    "link_depth": "docs/showcase/*.html → ../index.html, ../cbp-base.css"
+  }
+}

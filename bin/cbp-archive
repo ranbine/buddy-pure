@@ -1,0 +1,114 @@
+#!/bin/bash
+# cbp-archive: 对 $CBP_ROOT 下的文件进行版本归档
+# 用法: cbp-archive <文件路径> [备注]
+# 归档位置: $CBP_ARCHIVE/<相对路径>/v<N>/<文件名>
+# 示例: cbp-archive .codebuddy/rules/workflow.md "添加版本管理规则"
+
+set -e
+
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/paths.sh" || exit 1
+CBP_DIR="$CBP_ROOT"
+ARCHIVE_DIR="$CBP_ARCHIVE"
+
+if [ -z "$1" ]; then
+    echo "用法: cbp-archive <文件路径> [备注]"
+    echo "示例: cbp-archive .codebuddy/rules/workflow.md \"添加新规则\""
+    echo ""
+    echo "查看历史: cbp-archive --list <文件路径>"
+    echo "恢复版本: cbp-archive --restore <文件路径> <版本号>"
+    exit 1
+fi
+
+# --list: 列出文件的所有归档版本
+if [ "$1" = "--list" ]; then
+    FILE=$(realpath "$2" 2>/dev/null || echo "$2")
+    REL_PATH="${FILE#$CBP_DIR/}"
+    DIR_NAME=$(dirname "$REL_PATH")
+    BASE_NAME=$(basename "$REL_PATH")
+    TARGET_DIR="$ARCHIVE_DIR/$DIR_NAME/$BASE_NAME"
+
+    if [ ! -d "$TARGET_DIR" ]; then
+        echo "无归档记录: $FILE"
+        exit 0
+    fi
+
+    echo "归档历史: $FILE"
+    echo "---"
+    for vdir in $(ls -d "$TARGET_DIR"/v* 2>/dev/null | sort -V); do
+        ver=$(basename "$vdir")
+        meta="$vdir/meta.txt"
+        if [ -f "$meta" ]; then
+            date=$(head -1 "$meta")
+            note=$(sed -n '2p' "$meta")
+            echo "  $ver  [$date]  $note"
+        else
+            echo "  $ver"
+        fi
+    done
+    exit 0
+fi
+
+# --restore: 恢复指定版本
+if [ "$1" = "--restore" ]; then
+    FILE=$(realpath "$2" 2>/dev/null || echo "$2")
+    VER="$3"
+    REL_PATH="${FILE#$CBP_DIR/}"
+    DIR_NAME=$(dirname "$REL_PATH")
+    BASE_NAME=$(basename "$REL_PATH")
+    TARGET_DIR="$ARCHIVE_DIR/$DIR_NAME/$BASE_NAME"
+    RESTORE_SRC="$TARGET_DIR/v${VER}/$BASE_NAME"
+
+    if [ ! -f "$RESTORE_SRC" ]; then
+        echo "错误: 版本 v${VER} 不存在于 $TARGET_DIR"
+        exit 1
+    fi
+
+    # 先归档当前版本再恢复
+    if [ -f "$FILE" ]; then
+        "$0" "$FILE" "恢复前自动备份(将恢复到v${VER})"
+    fi
+    cp "$RESTORE_SRC" "$FILE"
+    echo "已恢复: $FILE <- v${VER}"
+    exit 0
+fi
+
+# 主逻辑: 归档当前文件
+FILE=$(realpath "$1")
+NOTE="${2:-}"
+
+if [ ! -f "$FILE" ]; then
+    echo "错误: 文件不存在: $FILE"
+    exit 1
+fi
+
+# 计算相对于 \$CBP_ROOT 的路径
+REL_PATH="${FILE#$CBP_DIR/}"
+if [ "$REL_PATH" = "$FILE" ]; then
+    # 文件不在 \$CBP_ROOT 下，用绝对路径的 hash 作为目录名
+    REL_PATH="external/$(echo "$FILE" | md5sum | cut -c1-8)_$(basename "$FILE")"
+fi
+
+DIR_NAME=$(dirname "$REL_PATH")
+BASE_NAME=$(basename "$REL_PATH")
+TARGET_DIR="$ARCHIVE_DIR/$DIR_NAME/$BASE_NAME"
+
+# 确定版本号
+NEXT_VER=1
+if [ -d "$TARGET_DIR" ]; then
+    LAST_VER=$(ls -d "$TARGET_DIR"/v* 2>/dev/null | sort -V | tail -1 | grep -oP '\d+$' || echo 0)
+    NEXT_VER=$((LAST_VER + 1))
+fi
+
+# 创建归档目录并复制
+VER_DIR="$TARGET_DIR/v${NEXT_VER}"
+mkdir -p "$VER_DIR"
+cp -p "$FILE" "$VER_DIR/"
+
+# 写入元数据
+cat > "$VER_DIR/meta.txt" <<EOF
+$(date '+%Y-%m-%d %H:%M')
+${NOTE}
+${FILE}
+EOF
+
+echo "已归档: $FILE -> v${NEXT_VER} ($VER_DIR)"
