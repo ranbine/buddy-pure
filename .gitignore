@@ -1,0 +1,36 @@
+# machine-specific config (may contain absolute paths / identity)
+config/local.env
+config/gate-policy.local.json
+config/local.json
+config/auto-archive.local.sh
+
+# CodeBuddy per-checkout overrides (the host adds this itself as well)
+.codebuddy/settings.local.json
+CODEBUDDY.local.md
+
+# runtime state (dirs defined in config/paths.env)
+history/
+pending/
+logs/
+data/
+docs/
+archive/
+settings/
+knowledge/
+build/
+.tmp/
+contexts/agents-evolution/
+
+# secrets — never commit
+.env
+*.pem
+*.key
+.git-credentials
+.netrc
+
+__pycache__/
+*.pyc
+*.bak.*
+
+# per-install rule/tip overlays (personal / domain)
+contexts/local/

@@ -1,0 +1,5 @@
+# keep the tree LF: these are shell, python and hook scripts consumed on POSIX hosts
+* text=auto eol=lf
+
+# generated reports and fixtures may legitimately carry CRLF
+*.html text eol=lf
